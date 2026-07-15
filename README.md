@@ -3,12 +3,12 @@
 ![](https://github.com/open-rmf/rmf_demos/workflows/build/badge.svg)
 ![](https://github.com/open-rmf/rmf_demos/workflows/style/badge.svg)
 
-The Open Robotics Middleware Framework (Open-RMF) enables interoperability among heterogeneous robot fleets while managing robot traffic that share resources such as space, building infrastructure systems (lifts, doors, etc) and other automation systems within the same facility. Open-RMF also handles task allocation and conflict resolution  among its participants (de-conflicting traffic lanes and other resources). These capabilities are provided by various libraries in [Open-RMF](https://github.com/open-rmf/rmf).
+The Open Robotics Middleware Framework (Open-RMF) enables interoperability among heterogeneous robot fleets while managing robot traffic that share resources such as space, building infrastructure systems (lifts, doors, etc) and other automation systems within the same facility. Open-RMF also handles task allocation and conflict resolution among its participants (de-conflicting traffic lanes and other resources). These capabilities are provided by various libraries in [Open-RMF](https://github.com/open-rmf/rmf).
 For more details about Open RMF, refer to the comprehensive documentation provided [here](https://osrf.github.io/ros2multirobotbook/intro.html).
 
 This repository contains demonstrations of the above mentioned capabilities of RMF. It serves as a starting point for working and integrating with Open-RMF.
 
-You can also find a nice demonstration of Open-RMF using `Nav2` and `MoveIt!` built into the [Ionic Release Demo](https://github.com/gazebosim/ionic_demo).
+This fork adds [`demo.sh`](demo.sh), a wrapper around the official Open-RMF Docker images (`ghcr.io/open-rmf/rmf/rmf_demos`, ROS 2 Kilted + Gazebo Ionic), so every demo below runs without building anything locally. The original source-build instructions are kept in [README.upstream.md](README.upstream.md).
 
 [![Robotics Middleware Framework](../media/thumbnail.png?raw=true)](https://vimeo.com/405803151)
 
@@ -16,18 +16,33 @@ You can also find a nice demonstration of Open-RMF using `Nav2` and `MoveIt!` bu
 
 ## System Requirements
 
-These demos were built and tested on
+* [Docker Engine](https://docs.docker.com/engine/install/) and an X server on your graphical desktop session (Gazebo and RViz open windows on your display)
+* A GPU is recommended; the launch command uses the AMD GPU passthrough flags (`/dev/kfd`, `/dev/dri`)
+* ~10 GB disk (~6 GB simulation image, ~1.5 GB rmf-web images, plus model cache), ~8 GB RAM
 
-* [Ubuntu 24.04 LTS](https://releases.ubuntu.com/24.04/)
+## Quick Start
 
-* [ROS 2 - Kilted](https://docs.ros.org/en/jazzy/Releases/Release-Kilted-Kaiju.html)
+```bash
+./demo.sh run-server       # rmf-web API server on localhost:8000
+./demo.sh run-dashboard    # web dashboard on localhost:3000
+./demo.sh check            # verify both containers are running
+./demo.sh download office  # pre-download the scene's Gazebo models (once per scene)
+./demo.sh run office       # launch the simulation (Ctrl-C to stop)
+```
 
-* [Gazebo Ionic](https://gazebosim.org/docs/ionic)
-> Note: The `main` branches of the core RMF libraries are fully supported on ROS 2 Humble, Iron, and Jazzy as well, but you will need to use the distro-specific branches for `rmf_traffic_editor` and `rmf_simulation`.
->
+Then dispatch tasks from the dashboard at [localhost:3000](http://localhost:3000) (*Create Task → Patrol*), or from the CLI:
 
-## Installation
-Instructions can be found [here](https://github.com/open-rmf/rmf).
+```bash
+./demo.sh task patrol -p pantry lounge coe -n 3
+```
+
+When you are done:
+
+```bash
+./demo.sh stop
+```
+
+Every command accepts `--help`; `./demo.sh run --help` lists the available scenes, `./demo.sh task --help` lists the available tasks (`--use_sim_time` is appended to tasks automatically).
 
 ## FAQ
 Answers to frequently asked questions can be found [here](docs/faq.md).
@@ -36,52 +51,23 @@ Answers to frequently asked questions can be found [here](docs/faq.md).
 
 A near-term roadmap of the Open-RMF project can be found in the user manual [here](https://osrf.github.io/ros2multirobotbook/roadmap.html).
 
-## RMF-Web quick start
+## RMF-Web
 
 Full web application of Open-RMF: [rmf-web](https://github.com/open-rmf/rmf-web).
 
-Start the backend API server via `docker` with host network access, using the default configuration. The API server will be accessible at `localhost:8000` by default.
+`./demo.sh run-server` starts the backend API server (`ghcr.io/open-rmf/rmf-web/api-server`) with host network access, accessible at `localhost:8000` (Swagger UI at `localhost:8000/docs`). `./demo.sh run-dashboard` starts the frontend dashboard (`ghcr.io/open-rmf/rmf-web/demo-dashboard`), accessible at `localhost:3000`.
 
-```bash
-docker run \
-  --network host -it --rm \
-  -e ROS_DOMAIN_ID=<ROS_DOMAIN_ID> \
-  -e RMW_IMPLEMENTATION=<RMW_IMPLEMENTATION> \
-  ghcr.io/open-rmf/rmf-web/api-server:jazzy-nightly
-
-# Use the appropriate tag for different ROS 2 distributions
-```
-
-> Note: The API server is also configurable by mounting the configuration file and setting the environment variable `RMF_API_SERVER_CONFIG`. In the default configuration, the API serer will use an internal non-persistent database.
-
-Start the frontend dashboard via `docker` with host network access, using the default configuration. The dashboard will be accessible at `localhost:3000` by default.
-
-```bash
-docker run \
-  --network host -it --rm \
-  ghcr.io/open-rmf/rmf-web/demo-dashboard:jazzy-nightly
-
-# Use the appropriate tag for different ROS 2 distributions
-```
-
-> Note: The dashboard via `docker` is not runtime-configurable and is best used for quick integrations and testing. To configure the dashboard, check out [rmf-web-dashboard-resources](https://github.com/open-rmf/rmf_demos/tree/rmf-web-dashboard-resources/rmf_demos_dashboard_resources) and the [dashboard configuration section](https://github.com/open-rmf/rmf-web/tree/main/packages/dashboard#configuration).
-
-In order to interact with the default configuration of the web application, the `server_uri` launch parameter will need to be changed to `ws://localhost:8000/_internal`, for example,
-
-```bash
-ros2 launch rmf_demos_gz office.launch.xml server_uri:="ws://localhost:8000/_internal"
-```
-
-By specifying `server_uri`, the fleetadapter will update `rmf-web` `api-server` with the latest task and robot states. User can then monitor on-going states and initiate rmf task with an interactive web dashboard.
+`./demo.sh run` launches the simulation with `server_uri:="ws://localhost:8000/_internal"`, so the fleet adapters update the api-server with the latest task and robot states. You can then monitor on-going states and initiate RMF tasks from the web dashboard.
 
 ## Demo Worlds
 
-* [Hotel World](#Hotel-World)
-* [Office World](#Office-World)
-* [Airport Terminal World](#Airport-Terminal-World)
-* [Clinic World](#Clinic-World)
-* [Campus World](#Campus-World)
-* [Manufacturing & Logistics World](#Manufacturing-&-Logistics-World)
+* [Hotel World](#hotel-world)
+* [Office World](#office-world)
+* [Airport Terminal World](#airport-terminal-world)
+* [Clinic World](#clinic-world)
+* [Campus World](#campus-world)
+
+Each world keeps its own model-cache volume (`rmf_gz_models_<scene>`), so its assets download once with `./demo.sh download <scene>` and are reused afterwards.
 
 ---
 
@@ -97,17 +83,14 @@ This demonstrates an integration of multiple fleets of robots with varying capab
 To launch the world and the schedule visualizer,
 
 ```bash
-source ~/rmf_ws/install/setup.bash
-ros2 launch rmf_demos_gz hotel.launch.xml
-
-# Or, run with ignition simulator
-ros2 launch rmf_demos_gz hotel.launch.xml
+./demo.sh download hotel
+./demo.sh run hotel
 ```
 
-Here, we will showcase 2 types of Tasks: **Loop** and **Clean**, you can dispatch them via CLI as follows:
+Here, we will showcase 2 types of Tasks: **Patrol** and **Clean**, you can dispatch them via CLI as follows:
 ```bash
-ros2 run rmf_demos_tasks dispatch_patrol -p restaurant  L3_master_suite -n 1 --use_sim_time
-ros2 run rmf_demos_tasks dispatch_clean -cs clean_lobby --use_sim_time
+./demo.sh task patrol -p restaurant L3_master_suite -n 1
+./demo.sh task clean -cs clean_lobby
 ```
 
 Robots running Clean and Loop Task:
@@ -120,30 +103,25 @@ Robots running Clean and Loop Task:
 An indoor office environment for robots to navigate around. It includes a beverage dispensing station, controllable doors and laneways which are integrated into RMF.
 
 ```bash
-source ~/rmf_demos_ws/install/setup.bash
-ros2 launch rmf_demos_gz office.launch.xml
-
-# Or, run with ignition simulator
-ros2 launch rmf_demos_gz office.launch.xml
+./demo.sh download office
+./demo.sh run office   # office is the default: ./demo.sh run
 ```
 
-Now we will showcase 2 types of Tasks: **Delivery** and **Loop**
+Now we will showcase 2 types of Tasks: **Delivery** and **Patrol**
 
 ![](../media/delivery_request.gif?raw=true)
 
 You can request the robot to deliver a can of coke from `pantry` to `hardware_2` through the following:
 ```bash
-ros2 run rmf_demos_tasks dispatch_delivery -p pantry -ph coke_dispenser -d hardware_2 -dh coke_ingestor --use_sim_time
+./demo.sh task delivery -p pantry -ph coke_dispenser -d hardware_2 -dh coke_ingestor
 ```
 
 You can also request the robot to move back and forth between `coe` and `lounge` through the following:
 ```bash
-ros2 run rmf_demos_tasks dispatch_patrol -p coe lounge -n 3 --use_sim_time
+./demo.sh task patrol -p coe lounge -n 3
 ```
 
 ![](../media/loop_request.gif)
-
-The office demo can be run in secure mode using ROS 2 DDS-Security integration. Click [here](docs/secure_office_world.md) to learn more.
 
 ---
 
@@ -155,38 +133,19 @@ This demo world shows robot interaction on a much larger map, with a lot more la
 ![](../media/airport_terminal_demo_screenshot.png)
 
 #### Demo Scenario
-In the airport world, we introduce a new task type to rmf: `Clean`. To launch the world:
+To launch the world:
 
 ```bash
-source ~/rmf_ws/install/setup.bash
-ros2 launch rmf_demos_gz airport_terminal.launch.xml
+./demo.sh download airport_terminal
+./demo.sh run airport_terminal
 ```
 
-You can submit `loop`, `delivery` or `clean` task via CLI:
+You can submit `patrol`, `delivery` or `clean` tasks via CLI:
 ```bash
-ros2 run rmf_demos_tasks dispatch_patrol -p s07 n12 -n 3 --use_sim_time
-ros2 run rmf_demos_tasks dispatch_delivery -p mopcart_pickup -ph mopcart_dispenser -d spill -dh mopcart_collector --use_sim_time
-ros2 run rmf_demos_tasks dispatch_clean -cs zone_3 --use_sim_time
+./demo.sh task patrol -p s07 n12 -n 3
+./demo.sh task delivery -p mopcart_pickup -ph mopcart_dispenser -d spill -dh mopcart_collector
+./demo.sh task clean -cs zone_3
 ```
-
-To see crowd simulation in action, enable crowd sim by:
-```bash
-ros2 launch rmf_demos_gz airport_terminal.launch.xml use_crowdsim:=1
-```
-
-Non-autonomous vehicles can also be integrated with Open-RMF provided their positions can be localized in the world. This may be of value at facilities where space is shared by autonomous robots as well as manually operated vehicles such as forklifts or transporters. In this demo, we can introduce a vehicle (caddy) which can be driven around through keyboard/joystick teleop. In Open-RMF nomenclature, this vehicle is classified as a `read_only` type, ie, Open-RMF can only infer its position in the world but does not have control over its motion. Here, the goal is to have other controllable robots avoid this vehicle's path by replanning their routes if needed. The model is fitted with a plugin which generates a prediction of the vehicle's path based on its current heading. It is configured to occupy the same lanes as the `tinyRobot` robots. Here, a `read_only_fleet_adapter` submits the prediction from the plugin to the Open-RMF schedule.
-
-In the airport terminal map, a `Caddy` is spawned in the far right corner and can be controlled with `geometry_msgs/Twist` messages published over the `cmd_vel` topic.
-
-Run `teleop_twist_keyboard` to control the `caddy` with your keyboard:
-```bash
-# Default launch with gazebo
-ros2 run teleop_twist_keyboard teleop_twist_keyboard
-
-ros2 launch rmf_demos_gz airport_terminal_caddy.launch.xml
-```
-
-![](../media/caddy.gif)
 
 ---
 
@@ -200,14 +159,14 @@ This is a clinic world with two levels and two lifts for the robots. Two differe
 To launch the world and the schedule visualizer,
 
 ```bash
-source ~/rmf_ws/install/setup.bash
-ros2 launch rmf_demos_gz clinic.launch.xml
+./demo.sh download clinic
+./demo.sh run clinic
 ```
 
 You can submit tasks via CLI:
 ```bash
-ros2 run rmf_demos_tasks dispatch_patrol -p L1_left_nurse_center L2_right_nurse_center -n 5 --use_sim_time
-ros2 run rmf_demos_tasks dispatch_patrol -p L2_north_counter L1_right_nurse_center -n 5 --use_sim_time
+./demo.sh task patrol -p L1_left_nurse_center L2_right_nurse_center -n 5
+./demo.sh task patrol -p L2_north_counter L1_right_nurse_center -n 5
 ```
 
 Robots taking lift:
@@ -230,103 +189,13 @@ This is a larger scale "Campus" World. In this world, there are multiple deliver
 To launch the world and the schedule visualizer,
 
 ```bash
-source ~/rmf_ws/install/setup.bash
-ros2 launch rmf_demos_gz campus.launch.xml
+./demo.sh download campus
+./demo.sh run campus
 
-ros2 run rmf_demos_tasks  dispatch_patrol -p room_5 campus_4 -n 10 --use_sim_time
-ros2 run rmf_demos_tasks  dispatch_patrol -p campus_5 room_3 -n 10 --use_sim_time
-ros2 run rmf_demos_tasks  dispatch_patrol -p room_2 dead_end -n 10 --use_sim_time
+./demo.sh task patrol -p room_5 campus_4 -n 10
+./demo.sh task patrol -p campus_5 room_3 -n 10
+./demo.sh task patrol -p room_2 dead_end -n 10
 ```
-
-#### RobotManager Integration
-`fleet_robotmanager_mqtt_bridge` (see [rmf_demos_bridges](https://github.com/open-rmf/rmf_demos/tree/main/rmf_demos_bridges/rmf_demos_bridges)) can be used to publish robot locations, battery percentage and state to a `/robot/status/ROBOT-ID` websocket endpoint. An instance of RobotManager can be configured to subscribe to this server to receive json messages, which will in turn visualize the robots on RobotManager.
-
-```bash
-# Install the prerequisites
-sudo apt install mosquitto mosquitto-clients
-
-# Start the bridge
-ros2 run rmf_demos_bridges fleet_robotmanager_mqtt_bridge -y 31500 -x 22000
-```
-
-The json messages for the first robot can be echoed using the following example command,
-
-```bash
-mosquitto_sub -t /robot/status/00000000-0000-0000-0000-000000000001
-```
-
----
-### Manufacturing & Logistics World
-
-An Open-RMF simulation demonstration created by ROS-Industrial Asia Pacific showcasing workcell (conveyor and fixed manipulator), multiple AMR fleets and infrastructure interoperability using the Open Robotics Middleeware Framework (Open-RMF).
-
-<p align="center">
-[![Alt text](https://img.youtube.com/vi/oSVQrjx_4w4/0.jpg)](https://www.youtube.com/watch?v=oSVQrjx_4w4)
-</p>
-
-## Other Tools and Features Demos
-
-* [Traffic Light Robot Demos](#Traffic-Light-Robot-Demos)
-* [Additional Features](#Additional-Features)
-* [Task Dispatching in Open-RMF](#Task-Dispatching-in-Open-RMF)
-
-### Traffic Light Robot Demos
-
-Open-RMF can also manage fleets whose API or fleet managers only offer pause and resume commands to control their robots. Such fleets are classified as `traffic_light`. To integrate a `traffic_light` fleet, users are expected to implement a `traffic_light` fleet adapter based on this [API](https://github.com/open-rmf/rmf_ros2/blob/main/rmf_fleet_adapter/include/rmf_fleet_adapter/agv/EasyTrafficLight.hpp). The `rmf_demos` repository contains demonstrations of `traffic_light` fleets in various scenarios. A simplistic `mock_traffic_light` adapter is used in these demonstrations.
-
-#### Triple-H scenario:
-```bash
-$ ros2 launch rmf_demos_gz triple_H.launch.xml
-(new terminal) $ ros2 launch rmf_demos the_pedigree.launch.xml
-```
-#### Battle Royale Scenario:
-
-```bash
-$ ros2 launch rmf_demos_gz battle_royale.launch.xml
-(new terminal) $ ros2 launch rmf_demos battle_go.launch.xml
-```
-
-#### Office Scenario:
-Note that `tinyRobot1` is a standard "full control" robot, while `tinyRobot2` "traffic light" robot.
-```bash
-$ ros2 launch rmf_demos_gz office_mock_traffic_light.launch.xml
-(new terminal) $ ros2 launch rmf_demos office_traffic_light_test.launch.xml
-```
-
-### Additional Features
- - **Flexible Tasks Scripts**
-   For more [details](rmf_demos_tasks/README.md).
-
- - **lift watchdog**
-   - The robot can query an external `lift_watchdog_server` for the permission to enter the lift cabin during the `LiftSession` Phase.
-   - Command lines:
-    ```bash
-    # run hotel world with lift_watch_dog enabled
-    ros2 launch rmf_demos_gz hotel.launch.xml enable_experimental_lift_watchdog:=1
-
-    ## On a separate terminal, set lift as crowded
-    ros2 launch rmf_demos experimental_crowded_lift.launch.xml
-
-    # Dispatch robot from level1 to level3, robot will wait in front of the lift cabin
-    ros2 run rmf_demos_tasks dispatch_patrol -p L3_room1  L3_room1 -n 1 --use_sim_time
-
-    # Lift is cleared. Give robot the permission to enter the lift
-    ros2 launch rmf_demos experimental_clear_lift.launch.xml
-    ```
- - **Custom Docking Sequence**
-    - Fleet adapter will notify the robot (via `dock()` api/ModeRequest) to execute its custom dock sequence when the robot reaches a "dock" waypoint.
-    - Implementation is similar to Clean task, refer to docs [here](https://osrf.github.io/ros2multirobotbook/task_types.html?highlight=docking#step-1-defining-waypoints-for-cleaning-in-traffic-editor)
-
- - **Emergency Alarm**
-   - All robots will get directed to the nearest parking spot when the emergency alarm is triggered.
-   - Command lines:
-    ```bash
-    # toggle alarm ON
-    ros2 topic pub -1 /fire_alarm_trigger std_msgs/Bool '{data: true}'
-
-    # toggle alarm OFF
-    ros2 topic pub -1 /fire_alarm_trigger std_msgs/Bool '{data: false}'
-    ```
 
 ## Task Dispatching in Open-RMF
 ![](../media/RMF_Bidding.png)
@@ -334,3 +203,18 @@ $ ros2 launch rmf_demos_gz office_mock_traffic_light.launch.xml
 In Open-RMF version `21.04` and above, tasks are awarded to robot fleets based on the outcome of a bidding process that is orchestrated by a Dispatcher node, `rmf_dispatcher_node`. When the Dispatcher receives a new task request from a UI, it sends out a `rmf_task_msgs/BidNotice` message to all the fleet adapters. If a fleet adapter is able to process that request, it submits a `rmf_task_msgs/BidProposal` message back to the Dispatcher with a cost to accommodate the task. An instance of `rmf_task::agv::TaskPlanner` is used by the fleet adapters to determine how best to accommodate the new request. The Dispatcher compares all the `BidProposals` received and then submits a `rmf_task_msgs/DispatchRequest` message with the fleet name of the robot that the bid is awarded to. There are a couple different ways the Dispatcher evaluates the proposals such as fastest to finish, lowest cost, etc which can be configured.
 
 Battery recharging is tightly integrated with the new task planner. `ChargeBattery` tasks are optimally injected into a robot's schedule when the robot has insufficient charge to fulfill a series of tasks. Currently we assume each robot in the map has a dedicated charging location as annotated with the `is_charger` option in the traffic editor map.
+
+## Other Tools and Features
+
+The traffic-light robot demos, lift watchdog, emergency alarm, RobotManager bridge and other advanced scenarios require extra launch files or host-side ROS 2 tooling that the Docker wrapper does not cover; see [README.upstream.md](README.upstream.md) for those, or open a shell inside the running simulation container:
+
+```bash
+docker exec -it rmf_demos bash -c 'source /opt/ros/kilted/setup.bash && source /rmf_demos_ws/install/setup.bash && exec bash'
+```
+
+## Troubleshooting
+
+- **Dashboard at `localhost:3000` loads but stays empty.** The simulation started before the API server was ready. Wait a couple of seconds, then restart the simulation (`./demo.sh run <scene>`); its logs should show `Successfully connected to ws://localhost:8000/_internal`.
+- **`localhost:8000` shows a 404.** That is normal: the API server has no root page. Use `localhost:8000/docs` for its Swagger UI.
+- **Gazebo takes minutes to open.** Fuel models are being downloaded at launch - run `./demo.sh download <scene>` first.
+- **`glx: failed to create dri3 screen` / sluggish rendering.** The GPU is not reaching the container. Verify `/dev/dri` exists on the host. On a machine with no usable GPU, add `-e LIBGL_ALWAYS_SOFTWARE=1` to the `docker run` command in `demo.sh`'s `cmd_run` to accept CPU rendering.
