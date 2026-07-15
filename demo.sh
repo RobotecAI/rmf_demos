@@ -11,6 +11,7 @@
 #   ./demo.sh download [scene]    # pre-download the scene's Gazebo models (default: office)
 #   ./demo.sh run [scene]         # launch the simulation (default: office)
 #   ./demo.sh task <name> [args]  # dispatch a task in the running simulation
+#   ./demo.sh shell               # open a sourced shell in the simulation container
 #   ./demo.sh stop                # stop all demo containers
 
 set -euo pipefail
@@ -38,6 +39,7 @@ Commands:
                        task patrol -p pantry lounge coe -n 3
                      (name maps to 'ros2 run rmf_demos_tasks dispatch_<name>';
                      --use_sim_time is appended if missing)
+  shell              Open a sourced bash shell in the simulation container
   stop               Stop the demo containers
   help               Show this help
 
@@ -130,6 +132,17 @@ to be running):
 
 Example:
   $(basename "$0") task patrol -p pantry lounge coe -n 3
+EOF
+}
+
+help_shell() {
+  cat <<EOF
+Usage: $(basename "$0") shell
+
+Opens an interactive bash shell inside the running 'rmf_demos' simulation
+container with the ROS 2 and rmf_demos workspaces sourced, ready for ad-hoc
+'ros2' commands (topic echo, node list, manual task dispatch, ...).
+Requires the simulation to be running ($(basename "$0") run). Takes no arguments.
 EOF
 }
 
@@ -255,6 +268,14 @@ cmd_task() {
      ros2 run rmf_demos_tasks $name ${args[*]}"
 }
 
+cmd_shell() {
+  wants_help "$@" && { help_shell; return 0; }
+  [ -n "$(docker ps -q -f 'name=^rmf_demos$')" ] || die "the 'rmf_demos' simulation container is not running (start it with: $(basename "$0") run)"
+
+  docker exec -it rmf_demos bash -c \
+    'source /opt/ros/kilted/setup.bash && source /rmf_demos_ws/install/setup.bash && exec bash'
+}
+
 cmd_stop() {
   wants_help "$@" && { help_stop; return 0; }
   local c stopped=0
@@ -278,6 +299,7 @@ case "$command" in
   download)      cmd_download "$@" ;;
   run)           cmd_run "$@" ;;
   task)          cmd_task "$@" ;;
+  shell)         cmd_shell "$@" ;;
   stop)          cmd_stop "$@" ;;
   help|-h|--help) usage ;;
   *) die "unknown command '$command' (see: $(basename "$0") help)" ;;

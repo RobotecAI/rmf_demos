@@ -174,10 +174,10 @@ To launch the world and the schedule visualizer,
 
 ## Advanced Scenarios
 
-Advanced scenarios (traffic-light robot demos, lift watchdog, emergency alarm, RobotManager bridge) are covered in [README.upstream.md](README.upstream.md). For ad-hoc ROS 2 commands, open a shell inside the running simulation container:
+Advanced scenarios (traffic-light robot demos, lift watchdog, emergency alarm, RobotManager bridge) are covered in [README.upstream.md](README.upstream.md). For ad-hoc ROS 2 commands, open a sourced shell inside the running simulation container:
 
 ```bash
-docker exec -it rmf_demos bash -c 'source /opt/ros/kilted/setup.bash && source /rmf_demos_ws/install/setup.bash && exec bash'
+./demo.sh shell
 ```
 
 ## Troubleshooting
