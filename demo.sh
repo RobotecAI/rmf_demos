@@ -219,7 +219,8 @@ cmd_download() {
           fi
         done
       '
-  docker volume ls # should show rmf_gz_models_<scene>
+  log "Docker volumes with rmf_demos assets:"  
+  docker volume ls | grep rmf_gz # should show rmf_gz_models_<scene>
 }
 
 cmd_run() {
